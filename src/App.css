@@ -1,0 +1,9 @@
+/* Additional App Layout & Responsiveness */
+@media (max-width: 900px) {
+  .detail-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .nav-search-box {
+    display: none !important;
+  }
+}
