@@ -33,7 +33,25 @@ export default function ProfileView({ user: targetUser = null }) {
   } = useApp();
 
   const user = targetUser || currentUser;
-  const isMe = user.id === currentUser.id;
+
+  if (!user) {
+    return (
+      <div style={{ maxWidth: '640px', margin: '4rem auto', textAlign: 'center' }}>
+        <div className="glass-panel" style={{ padding: '3rem 2rem' }}>
+          <ShieldCheck size={40} color="var(--primary-600)" style={{ marginBottom: '1rem' }} />
+          <h2 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '0.5rem' }}>Sign In Required</h2>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
+            Please sign in to view your profile, manage active listings, check trust score, and view saved bookmarks.
+          </p>
+          <button className="btn btn-primary" onClick={() => openModal('auth', 'login')}>
+            Sign In / Register
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const isMe = currentUser && user.id === currentUser.id;
 
   const [activeTab, setActiveTab] = useState('listings'); // 'listings' | 'history' | 'reviews' | 'favorites'
 
@@ -64,7 +82,7 @@ export default function ProfileView({ user: targetUser = null }) {
         }}
       >
         <div style={{ display: 'flex', gap: '1.75rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
-          {/* Avatar with Verified Ring */}
+          {/* Avatar */}
           <div style={{ position: 'relative' }}>
             <img
               src={user.avatar}
@@ -72,7 +90,7 @@ export default function ProfileView({ user: targetUser = null }) {
               style={{
                 width: '100px',
                 height: '100px',
-                borderRadius: '50%',
+                borderRadius: '4px',
                 objectFit: 'cover',
                 border: user.isVerified ? '3px solid #3b82f6' : '3px solid var(--border-color)',
                 boxShadow: 'var(--shadow-md)'
@@ -86,7 +104,7 @@ export default function ProfileView({ user: targetUser = null }) {
                   right: '4px',
                   background: '#3b82f6',
                   color: '#fff',
-                  borderRadius: '50%',
+                  borderRadius: '4px',
                   width: '24px',
                   height: '24px',
                   display: 'flex',
@@ -94,7 +112,7 @@ export default function ProfileView({ user: targetUser = null }) {
                   justifyContent: 'center',
                   boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
                 }}
-                title="Government ID Verified"
+                title="Verified Resident"
               >
                 <CheckCircle2 size={16} />
               </div>
@@ -110,27 +128,17 @@ export default function ProfileView({ user: targetUser = null }) {
                 </h2>
                 {user.isVerified ? (
                   <span className="badge badge-verified">
-                    <CheckCircle2 size={13} /> Verified Neighbor
+                    <CheckCircle2 size={13} /> Verified Resident
                   </span>
                 ) : (
-                  <span className="badge badge-pending">Unverified</span>
+                  <span className="badge badge-pending">Standard Member</span>
                 )}
                 {user.role === 'admin' && (
-                  <span className="badge" style={{ background: '#ede9fe', color: '#6d28d9' }}>
+                  <span className="badge" style={{ background: '#e2e8f0', color: '#334155' }}>
                     Platform Moderator
                   </span>
                 )}
               </div>
-
-              {/* Action */}
-              {isMe && !user.isVerified && (
-                <button
-                  className="btn btn-primary btn-sm"
-                  onClick={() => openModal('verify')}
-                >
-                  Verify My Identity (+35 Trust)
-                </button>
-              )}
             </div>
 
             <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '0.85rem', lineHeight: 1.5 }}>
@@ -156,9 +164,9 @@ export default function ProfileView({ user: targetUser = null }) {
           {/* Trust Score Gauge Card */}
           <div
             style={{
-              background: 'linear-gradient(135deg, rgba(13, 148, 136, 0.08), rgba(16, 185, 129, 0.05))',
+              background: 'rgba(13, 148, 136, 0.08)',
               border: '1px solid rgba(13, 148, 136, 0.25)',
-              borderRadius: 'var(--radius-lg)',
+              borderRadius: 'var(--radius-md)',
               padding: '1.25rem',
               textAlign: 'center',
               minWidth: '180px'
@@ -167,8 +175,9 @@ export default function ProfileView({ user: targetUser = null }) {
             <span style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: 'var(--primary-800)', fontWeight: 700 }}>
               Neighbor Trust Metric
             </span>
-            <div style={{ fontSize: '2.4rem', fontWeight: 900, color: 'var(--primary-700)', lineHeight: 1.1, margin: '0.2rem 0' }}>
-              🛡️ {user.trustScore}
+            <div style={{ fontSize: '2.2rem', fontWeight: 900, color: 'var(--primary-700)', lineHeight: 1.1, margin: '0.3rem 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+              <ShieldCheck size={26} />
+              <span>{user.trustScore}</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.25rem', color: '#f59e0b', fontSize: '0.85rem', fontWeight: 700 }}>
               <Star size={14} fill="#f59e0b" />
@@ -199,10 +208,10 @@ export default function ProfileView({ user: targetUser = null }) {
           }}
         >
           <span>
-            <strong>How Trust Score is Calculated:</strong> Base (40) + Government ID ({user.isVerified ? '+35 ✓' : '0'}) + Completed Exchanges (+{Math.min(15, completedCount * 2)}) + Community Reviews (+{Math.round(((user.ratingAverage || 5) / 5) * 10)})
+            <strong>How Trust Score is Calculated:</strong> Base Activity (40) + Account Age & Profile ({user.isVerified ? '+35' : '+15'}) + Completed Exchanges (+{Math.min(15, completedCount * 2)}) + Community Reviews (+{Math.round(((user.ratingAverage || 5) / 5) * 10)})
           </span>
           <span style={{ color: 'var(--primary-700)', fontWeight: 600 }}>
-            {user.trustScore >= 90 ? '🌟 Highly Trusted Neighbor' : 'Solid Community Standing'}
+            {user.trustScore >= 90 ? 'High Community Standing' : 'Active Community Standing'}
           </span>
         </div>
       </div>

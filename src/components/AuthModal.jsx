@@ -1,4 +1,4 @@
-// RepairMitra AuthModal Component - Login & Registration with SQLite/Express
+// RepairMitra AuthModal Component - SQLite Database Authentication
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import {
@@ -10,27 +10,27 @@ import {
   Phone,
   ShieldCheck,
   CheckCircle2,
-  Sparkles,
-  ArrowRight
+  Key
 } from 'lucide-react';
 import { NEIGHBORHOODS } from '../data/mockData';
 
 export default function AuthModal({ initialMode = 'login', onClose }) {
-  const { loginUser, registerUser, users, switchUser } = useApp();
+  const { loginUser, registerUser } = useApp();
 
   const [mode, setMode] = useState(initialMode); // 'login' | 'register'
 
   // Login form state
-  const [loginEmail, setLoginEmail] = useState('');
+  const [loginIdentifier, setLoginIdentifier] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
 
   // Register form state
   const [regName, setRegName] = useState('');
+  const [regUsername, setRegUsername] = useState('');
   const [regEmail, setRegEmail] = useState('');
   const [regPassword, setRegPassword] = useState('');
   const [regPhone, setRegPhone] = useState('');
   const [regNeighborhood, setRegNeighborhood] = useState('Indiranagar');
-  const [regRole, setRegRole] = useState('buyer'); // 'buyer' | 'seller' | 'artisan'
+  const [regRole, setRegRole] = useState('buyer');
   const [regBio, setRegBio] = useState('');
 
   const [errorMsg, setErrorMsg] = useState('');
@@ -41,12 +41,12 @@ export default function AuthModal({ initialMode = 'login', onClose }) {
     setErrorMsg('');
     setLoading(true);
     try {
-      await loginUser(loginEmail, loginPassword);
+      await loginUser(loginIdentifier, loginPassword);
       setLoading(false);
       onClose();
     } catch (err) {
       setLoading(false);
-      setErrorMsg(err.message || 'Login failed. Please check credentials.');
+      setErrorMsg(err.message || 'Login failed. Please check your credentials.');
     }
   };
 
@@ -57,6 +57,7 @@ export default function AuthModal({ initialMode = 'login', onClose }) {
     try {
       await registerUser({
         name: regName,
+        username: regUsername || regEmail.split('@')[0],
         email: regEmail,
         password: regPassword,
         phone: regPhone,
@@ -73,8 +74,8 @@ export default function AuthModal({ initialMode = 'login', onClose }) {
     }
   };
 
-  const quickLogin = (email, pwd) => {
-    setLoginEmail(email);
+  const fillTestCredentials = (identifier, pwd) => {
+    setLoginIdentifier(identifier);
     setLoginPassword(pwd);
   };
 
@@ -82,7 +83,7 @@ export default function AuthModal({ initialMode = 'login', onClose }) {
     <div className="modal-overlay" onClick={onClose}>
       <div
         className="modal-content"
-        style={{ maxWidth: '480px' }}
+        style={{ maxWidth: '460px' }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -96,15 +97,15 @@ export default function AuthModal({ initialMode = 'login', onClose }) {
           }}
         >
           <div>
-            <h3 style={{ fontSize: '1.2rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>
-              {mode === 'login' ? 'Neighbor Sign In' : 'Join RepairMitra Network'}
+            <h3 style={{ fontSize: '1.15rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>
+              {mode === 'login' ? 'Sign In to RepairMitra' : 'Create an Account'}
             </h3>
             <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0 }}>
               SQLite Database Authentication • Password Hashed with Bcrypt
             </p>
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
-            <X size={20} />
+            <X size={18} />
           </button>
         </div>
 
@@ -120,7 +121,8 @@ export default function AuthModal({ initialMode = 'login', onClose }) {
               fontWeight: mode === 'login' ? 700 : 500,
               color: mode === 'login' ? 'var(--primary-700)' : 'var(--text-muted)',
               borderBottom: mode === 'login' ? '2px solid var(--primary-600)' : 'none',
-              cursor: 'pointer'
+              cursor: 'pointer',
+              fontSize: '0.85rem'
             }}
             onClick={() => {
               setMode('login');
@@ -139,14 +141,15 @@ export default function AuthModal({ initialMode = 'login', onClose }) {
               fontWeight: mode === 'register' ? 700 : 500,
               color: mode === 'register' ? 'var(--primary-700)' : 'var(--text-muted)',
               borderBottom: mode === 'register' ? '2px solid var(--primary-600)' : 'none',
-              cursor: 'pointer'
+              cursor: 'pointer',
+              fontSize: '0.85rem'
             }}
             onClick={() => {
               setMode('register');
               setErrorMsg('');
             }}
           >
-            Create Account
+            Register
           </button>
         </div>
 
@@ -167,23 +170,23 @@ export default function AuthModal({ initialMode = 'login', onClose }) {
           </div>
         )}
 
-        <div style={{ padding: '1.5rem' }}>
+        <div style={{ padding: '1.5rem', maxHeight: '75vh', overflowY: 'auto' }}>
           {mode === 'login' ? (
             /* LOGIN FORM */
             <form onSubmit={handleLoginSubmit}>
               <div style={{ marginBottom: '1rem' }}>
                 <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, marginBottom: '0.35rem' }}>
-                  Email Address
+                  Username or Email
                 </label>
                 <div style={{ position: 'relative' }}>
-                  <Mail size={16} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                  <User size={15} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                   <input
-                    type="email"
+                    type="text"
                     className="input-field"
-                    placeholder="e.g. aarav.sharma@example.com"
-                    value={loginEmail}
-                    onChange={(e) => setLoginEmail(e.target.value)}
-                    style={{ paddingLeft: '2.25rem' }}
+                    placeholder="Enter username or email"
+                    value={loginIdentifier}
+                    onChange={(e) => setLoginIdentifier(e.target.value)}
+                    style={{ paddingLeft: '2.25rem', borderRadius: 'var(--radius-sm)' }}
                     required
                   />
                 </div>
@@ -194,14 +197,14 @@ export default function AuthModal({ initialMode = 'login', onClose }) {
                   Password
                 </label>
                 <div style={{ position: 'relative' }}>
-                  <Lock size={16} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                  <Lock size={15} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                   <input
                     type="password"
                     className="input-field"
-                    placeholder="Enter your account password"
+                    placeholder="Enter account password"
                     value={loginPassword}
                     onChange={(e) => setLoginPassword(e.target.value)}
-                    style={{ paddingLeft: '2.25rem' }}
+                    style={{ paddingLeft: '2.25rem', borderRadius: 'var(--radius-sm)' }}
                     required
                   />
                 </div>
@@ -210,72 +213,85 @@ export default function AuthModal({ initialMode = 'login', onClose }) {
               <button
                 type="submit"
                 className="btn btn-primary btn-lg"
-                style={{ width: '100%', fontWeight: 800, marginBottom: '1.25rem' }}
+                style={{ width: '100%', fontWeight: 700, marginBottom: '1.25rem' }}
                 disabled={loading}
               >
-                {loading ? 'Authenticating...' : 'Sign In to RepairMitra'}
+                {loading ? 'Authenticating...' : 'Sign In'}
               </button>
 
-              {/* Quick Fill Demo Credentials */}
+              {/* Bot Accounts Test Reference */}
               <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
-                <span style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', display: 'block', marginBottom: '0.5rem' }}>
-                  One-Click Demo Sign-In (Password: password123):
-                </span>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginBottom: '0.5rem' }}>
+                  <Key size={13} color="var(--primary-600)" />
+                  <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                    Bot Accounts Reference (Password: password123)
+                  </span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
                   <button
                     type="button"
                     className="btn btn-secondary btn-sm"
-                    style={{ justifyContent: 'flex-start', fontSize: '0.75rem' }}
-                    onClick={() => quickLogin('aarav.sharma@example.com', 'password123')}
+                    style={{ justifyContent: 'space-between', fontSize: '0.75rem' }}
+                    onClick={() => fillTestCredentials('bot_lender', 'password123')}
                   >
-                    <span>Borrower / Buyer: <strong>Aarav Sharma</strong> (Indiranagar)</span>
+                    <span>Tool Custodian Bot: <strong>bot_lender</strong></span>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--primary-700)' }}>Fill</span>
                   </button>
                   <button
                     type="button"
                     className="btn btn-secondary btn-sm"
-                    style={{ justifyContent: 'flex-start', fontSize: '0.75rem' }}
-                    onClick={() => quickLogin('rajesh.kumar@example.com', 'password123')}
+                    style={{ justifyContent: 'space-between', fontSize: '0.75rem' }}
+                    onClick={() => fillTestCredentials('bot_artisan', 'password123')}
                   >
-                    <span>Lender / Seller: <strong>Rajesh Kumar</strong> (Indiranagar)</span>
+                    <span>Repair Artisan Bot: <strong>bot_artisan</strong></span>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--primary-700)' }}>Fill</span>
                   </button>
                   <button
                     type="button"
                     className="btn btn-secondary btn-sm"
-                    style={{ justifyContent: 'flex-start', fontSize: '0.75rem' }}
-                    onClick={() => quickLogin('priya.patel@example.com', 'password123')}
+                    style={{ justifyContent: 'space-between', fontSize: '0.75rem' }}
+                    onClick={() => fillTestCredentials('admin', 'password123')}
                   >
-                    <span>Artisan / Electrician: <strong>Priya Patel</strong> (Koramangala)</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-secondary btn-sm"
-                    style={{ justifyContent: 'flex-start', fontSize: '0.75rem' }}
-                    onClick={() => quickLogin('admin@repairmitra.org', 'password123')}
-                  >
-                    <span>Administrator: <strong>Vikramaditya Rao</strong> (Admin)</span>
+                    <span>Platform Admin: <strong>admin</strong></span>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--primary-700)' }}>Fill</span>
                   </button>
                 </div>
               </div>
             </form>
           ) : (
-            /* REGISTER FORM */
+            /* REGISTRATION FORM */
             <form onSubmit={handleRegisterSubmit}>
               <div style={{ marginBottom: '1rem' }}>
                 <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, marginBottom: '0.35rem' }}>
                   Full Name *
                 </label>
                 <div style={{ position: 'relative' }}>
-                  <User size={16} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                  <User size={15} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                   <input
                     type="text"
                     className="input-field"
-                    placeholder="e.g. Meera Nambiar"
+                    placeholder="e.g. Harissh Sharma"
                     value={regName}
                     onChange={(e) => setRegName(e.target.value)}
-                    style={{ paddingLeft: '2.25rem' }}
+                    style={{ paddingLeft: '2.25rem', borderRadius: 'var(--radius-sm)' }}
                     required
                   />
                 </div>
+              </div>
+
+              <div style={{ marginBottom: '1rem' }}>
+                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, marginBottom: '0.35rem' }}>
+                  Username *
+                </label>
+                <input
+                  type="text"
+                  className="input-field"
+                  placeholder="e.g. harissh_fixer"
+                  value={regUsername}
+                  onChange={(e) => setRegUsername(e.target.value.toLowerCase().replace(/\s+/g, ''))}
+                  style={{ borderRadius: 'var(--radius-sm)' }}
+                  required
+                />
               </div>
 
               <div style={{ marginBottom: '1rem' }}>
@@ -283,14 +299,14 @@ export default function AuthModal({ initialMode = 'login', onClose }) {
                   Email Address *
                 </label>
                 <div style={{ position: 'relative' }}>
-                  <Mail size={16} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                  <Mail size={15} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                   <input
                     type="email"
                     className="input-field"
-                    placeholder="meera@example.com"
+                    placeholder="e.g. harissh@example.com"
                     value={regEmail}
                     onChange={(e) => setRegEmail(e.target.value)}
-                    style={{ paddingLeft: '2.25rem' }}
+                    style={{ paddingLeft: '2.25rem', borderRadius: 'var(--radius-sm)' }}
                     required
                   />
                 </div>
@@ -298,17 +314,17 @@ export default function AuthModal({ initialMode = 'login', onClose }) {
 
               <div style={{ marginBottom: '1rem' }}>
                 <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, marginBottom: '0.35rem' }}>
-                  Choose Password *
+                  Password *
                 </label>
                 <div style={{ position: 'relative' }}>
-                  <Lock size={16} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                  <Lock size={15} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                   <input
                     type="password"
                     className="input-field"
-                    placeholder="Min 6 characters (hashed with bcrypt)"
+                    placeholder="Create a strong password"
                     value={regPassword}
                     onChange={(e) => setRegPassword(e.target.value)}
-                    style={{ paddingLeft: '2.25rem' }}
+                    style={{ paddingLeft: '2.25rem', borderRadius: 'var(--radius-sm)' }}
                     required
                   />
                 </div>
@@ -317,72 +333,63 @@ export default function AuthModal({ initialMode = 'login', onClose }) {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '1rem' }}>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, marginBottom: '0.35rem' }}>
-                    Neighborhood *
+                    Neighborhood
                   </label>
                   <select
                     className="input-field"
                     value={regNeighborhood}
                     onChange={(e) => setRegNeighborhood(e.target.value)}
+                    style={{ borderRadius: 'var(--radius-sm)' }}
                   >
                     {NEIGHBORHOODS.map((n) => (
-                      <option key={n.name} value={n.name}>{n.name}</option>
+                      <option key={n.name} value={n.name}>
+                        {n.name}
+                      </option>
                     ))}
                   </select>
                 </div>
 
                 <div>
                   <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, marginBottom: '0.35rem' }}>
-                    Primary Role *
+                    Primary Role
                   </label>
                   <select
                     className="input-field"
                     value={regRole}
                     onChange={(e) => setRegRole(e.target.value)}
+                    style={{ borderRadius: 'var(--radius-sm)' }}
                   >
-                    <option value="buyer">Borrower / Buyer</option>
-                    <option value="seller">Lender / Tool Seller</option>
-                    <option value="artisan">Repair Artisan / Fixer</option>
+                    <option value="buyer">Borrower</option>
+                    <option value="seller">Tool Lender</option>
+                    <option value="artisan">Repair Artisan</option>
                   </select>
-                </div>
-              </div>
-
-              <div style={{ marginBottom: '1rem' }}>
-                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, marginBottom: '0.35rem' }}>
-                  Phone Number (Encrypted & Kept Private)
-                </label>
-                <div style={{ position: 'relative' }}>
-                  <Phone size={16} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                  <input
-                    type="tel"
-                    className="input-field"
-                    placeholder="+91 98765 43210"
-                    value={regPhone}
-                    onChange={(e) => setRegPhone(e.target.value)}
-                    style={{ paddingLeft: '2.25rem' }}
-                  />
                 </div>
               </div>
 
               <div style={{ marginBottom: '1.25rem' }}>
                 <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, marginBottom: '0.35rem' }}>
-                  Short Neighbor Bio
+                  Phone Number
                 </label>
-                <input
-                  type="text"
-                  className="input-field"
-                  placeholder="e.g. Keen home baker and DIY furniture builder."
-                  value={regBio}
-                  onChange={(e) => setRegBio(e.target.value)}
-                />
+                <div style={{ position: 'relative' }}>
+                  <Phone size={15} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                  <input
+                    type="tel"
+                    className="input-field"
+                    placeholder="+91 98000 00000"
+                    value={regPhone}
+                    onChange={(e) => setRegPhone(e.target.value)}
+                    style={{ paddingLeft: '2.25rem', borderRadius: 'var(--radius-sm)' }}
+                  />
+                </div>
               </div>
 
               <button
                 type="submit"
                 className="btn btn-primary btn-lg"
-                style={{ width: '100%', fontWeight: 800 }}
+                style={{ width: '100%', fontWeight: 700 }}
                 disabled={loading}
               >
-                {loading ? 'Creating Account...' : 'Register in SQLite Database'}
+                {loading ? 'Creating Account...' : 'Complete Registration'}
               </button>
             </form>
           )}

@@ -99,9 +99,9 @@ export default function ToolCard({ tool }) {
             position: 'absolute',
             top: '0.6rem',
             right: '0.6rem',
-            background: 'rgba(255, 255, 255, 0.85)',
+            background: 'rgba(255, 255, 255, 0.9)',
             border: 'none',
-            borderRadius: '50%',
+            borderRadius: 'var(--radius-sm)',
             width: '32px',
             height: '32px',
             display: 'flex',
@@ -140,8 +140,9 @@ export default function ToolCard({ tool }) {
           <span className="badge badge-category" style={{ fontSize: '0.7rem' }}>
             {tool.category}
           </span>
-          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-            📍 {tool.neighborhood}
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+            <MapPin size={12} />
+            <span>{tool.neighborhood}</span>
           </span>
         </div>
 
@@ -217,7 +218,7 @@ export default function ToolCard({ tool }) {
             <img
               src={owner.avatar}
               alt={owner.name}
-              style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover' }}
+              style={{ width: '28px', height: '28px', borderRadius: '4px', objectFit: 'cover' }}
             />
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
@@ -236,10 +237,11 @@ export default function ToolCard({ tool }) {
 
           <div
             className="badge badge-trust"
-            style={{ fontSize: '0.68rem', padding: '0.15rem 0.45rem' }}
+            style={{ fontSize: '0.68rem', padding: '0.15rem 0.45rem', display: 'inline-flex', alignItems: 'center', gap: '3px' }}
             title="Computed Trust Score based on verified identity, completed loans, and neighbor reviews"
           >
-            🛡️ {owner.trustScore} Trust
+            <ShieldCheck size={12} />
+            <span>{owner.trustScore} Trust</span>
           </div>
         </div>
 

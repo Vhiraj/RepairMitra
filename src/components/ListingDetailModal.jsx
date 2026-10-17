@@ -9,12 +9,10 @@ import {
   CheckCircle2,
   Calendar,
   AlertTriangle,
-  MessageSquare,
   Clock,
-  Info,
-  DollarSign,
   Heart,
-  Share2
+  Share2,
+  LogIn
 } from 'lucide-react';
 
 export default function ListingDetailModal({ listing, type = 'tool', onClose }) {
@@ -54,6 +52,8 @@ export default function ListingDetailModal({ listing, type = 'tool', onClose }) 
 
   const [startDate, setStartDate] = useState(todayStr);
   const [endDate, setEndDate] = useState(tomorrowStr);
+  const [serviceTimeSlot, setServiceTimeSlot] = useState('Morning (09:00 - 12:00)');
+  const [customTime, setCustomTime] = useState('');
   const [projectScope, setProjectScope] = useState('');
   const [activeImageIdx, setActiveImageIdx] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -70,10 +70,17 @@ export default function ListingDetailModal({ listing, type = 'tool', onClose }) 
 
   const handleBookingSubmit = (e) => {
     e.preventDefault();
+    if (!currentUser) {
+      openModal('auth', 'login');
+      return;
+    }
+
     if (!projectScope.trim()) {
       alert('Please describe your project or what you need repaired/done.');
       return;
     }
+
+    const chosenSlot = serviceTimeSlot === 'Custom Time' ? (customTime || 'Custom Time') : serviceTimeSlot;
 
     setIsSubmitting(true);
     setTimeout(() => {
@@ -85,6 +92,7 @@ export default function ListingDetailModal({ listing, type = 'tool', onClose }) 
         ownerId: listing.ownerId,
         startDate,
         endDate: isTool ? endDate : startDate,
+        serviceTimeSlot: chosenSlot,
         daysCount,
         projectScope,
         totalCost,
@@ -143,7 +151,7 @@ export default function ListingDetailModal({ listing, type = 'tool', onClose }) 
             </button>
             <button onClick={handleShare} className="btn btn-secondary btn-sm" title="Share listing link">
               <Share2 size={15} />
-              <span>{copied ? 'Copied!' : 'Share'}</span>
+              <span>{copied ? 'Copied' : 'Share'}</span>
             </button>
             <button
               onClick={onClose}
@@ -168,7 +176,7 @@ export default function ListingDetailModal({ listing, type = 'tool', onClose }) 
               style={{
                 width: '100%',
                 height: '320px',
-                borderRadius: 'var(--radius-lg)',
+                borderRadius: 'var(--radius-sm)',
                 overflow: 'hidden',
                 background: '#0f172a',
                 marginBottom: '0.75rem',
@@ -185,12 +193,11 @@ export default function ListingDetailModal({ listing, type = 'tool', onClose }) 
                   className={`badge ${listing.isAvailable ? 'badge-available' : 'badge-unavailable'}`}
                   style={{ position: 'absolute', top: '1rem', left: '1rem' }}
                 >
-                  {listing.isAvailable ? '● Available for Loan' : '● Currently In Use'}
+                  {listing.isAvailable ? 'Available for Loan' : 'Currently In Use'}
                 </div>
               )}
             </div>
 
-            {/* Thumbnail switcher if multiple images */}
             {listing.images.length > 1 && (
               <div style={{ display: 'flex', gap: '0.5rem' }}>
                 {listing.images.map((img, idx) => (
@@ -200,7 +207,7 @@ export default function ListingDetailModal({ listing, type = 'tool', onClose }) 
                     style={{
                       width: '64px',
                       height: '64px',
-                      borderRadius: 'var(--radius-sm)',
+                      borderRadius: 'var(--radius-xs)',
                       overflow: 'hidden',
                       border: idx === activeImageIdx ? '2px solid var(--primary-600)' : '1px solid var(--border-color)',
                       padding: 0,
@@ -230,13 +237,13 @@ export default function ListingDetailModal({ listing, type = 'tool', onClose }) 
                 style={{
                   background: 'var(--bg-card)',
                   border: '1px solid var(--border-color)',
-                  borderRadius: 'var(--radius-md)',
+                  borderRadius: 'var(--radius-sm)',
                   padding: '1.25rem',
                   marginBottom: '1.5rem'
                 }}
               >
                 <h4 style={{ fontSize: '0.875rem', fontWeight: 700, marginBottom: '0.75rem', color: 'var(--text-main)' }}>
-                  {isTool ? 'Tool Details & Specs' : 'Service Scope'}
+                  {isTool ? 'Tool Details and Specs' : 'Service Scope'}
                 </h4>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', fontSize: '0.825rem' }}>
                   {isTool ? (
@@ -250,52 +257,52 @@ export default function ListingDetailModal({ listing, type = 'tool', onClose }) 
                         <strong>{listing.category}</strong>
                       </div>
                       <div>
-                        <span style={{ color: 'var(--text-muted)' }}>Daily Rate: </span>
-                        <strong>₹{listing.rentalFee} / day</strong>
+                        <span style={{ color: 'var(--text-muted)' }}>Neighborhood: </span>
+                        <strong>{listing.neighborhood}</strong>
                       </div>
                       <div>
-                        <span style={{ color: 'var(--text-muted)' }}>Security Deposit: </span>
-                        <strong>₹{listing.deposit} (Refundable)</strong>
+                        <span style={{ color: 'var(--text-muted)' }}>Pricing Model: </span>
+                        <strong>₹{listing.rentalFee} / day</strong>
                       </div>
                     </>
                   ) : (
                     <>
                       <div>
+                        <span style={{ color: 'var(--text-muted)' }}>Service Category: </span>
+                        <strong>{listing.serviceType}</strong>
+                      </div>
+                      <div>
                         <span style={{ color: 'var(--text-muted)' }}>Experience: </span>
                         <strong>{listing.experienceYears} Years</strong>
                       </div>
                       <div>
-                        <span style={{ color: 'var(--text-muted)' }}>Rate Type: </span>
-                        <strong>{listing.pricingType === 'hourly' ? '₹' + listing.price + ' / hour' : '₹' + listing.price + ' base'}</strong>
+                        <span style={{ color: 'var(--text-muted)' }}>Pricing: </span>
+                        <strong>₹{listing.price} ({listing.pricingType})</strong>
                       </div>
                       <div>
                         <span style={{ color: 'var(--text-muted)' }}>Availability: </span>
-                        <strong>{listing.availability}</strong>
-                      </div>
-                      <div>
-                        <span style={{ color: 'var(--text-muted)' }}>Service Area: </span>
-                        <strong>{listing.location}</strong>
+                        <strong>{listing.availability || 'Flexible'}</strong>
                       </div>
                     </>
                   )}
                 </div>
               </div>
 
-              {/* Safety & Domain Rules Alert */}
+              {/* Safety Rule */}
               <div
                 style={{
                   background: 'rgba(245, 158, 11, 0.08)',
                   border: '1px solid rgba(245, 158, 11, 0.25)',
-                  borderRadius: 'var(--radius-md)',
+                  borderRadius: 'var(--radius-sm)',
                   padding: '1rem',
                   marginBottom: '1.5rem',
                   display: 'flex',
                   gap: '0.75rem'
                 }}
               >
-                <AlertTriangle size={20} color="#f59e0b" style={{ flexShrink: 0, marginTop: '2px' }} />
+                <AlertTriangle size={18} color="#f59e0b" style={{ flexShrink: 0, marginTop: '2px' }} />
                 <div style={{ fontSize: '0.8rem', color: 'var(--text-main)', lineHeight: 1.5 }}>
-                  <strong>Safety & Privacy Rule:</strong> {listing.safetyGuidelines || 'Personal phone numbers are strictly protected. Exact pick-up address is unlocked immediately after the owner accepts your request.'}
+                  <strong>Safety and Privacy Notice:</strong> {listing.safetyGuidelines || 'Personal phone numbers are protected. Exact pickup address unlocks immediately after owner acceptance.'}
                 </div>
               </div>
 
@@ -304,7 +311,7 @@ export default function ListingDetailModal({ listing, type = 'tool', onClose }) 
                 style={{
                   background: 'var(--bg-card)',
                   border: '1px solid var(--border-color)',
-                  borderRadius: 'var(--radius-md)',
+                  borderRadius: 'var(--radius-sm)',
                   padding: '1.25rem'
                 }}
               >
@@ -313,12 +320,12 @@ export default function ListingDetailModal({ listing, type = 'tool', onClose }) 
                     <img
                       src={owner.avatar}
                       alt={owner.name}
-                      style={{ width: '48px', height: '48px', borderRadius: '50%', objectFit: 'cover' }}
+                      style={{ width: '44px', height: '44px', borderRadius: '4px', objectFit: 'cover' }}
                     />
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
                         <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>{owner.name}</span>
-                        {owner.isVerified && <CheckCircle2 size={16} color="#3b82f6" title="Government ID Verified" />}
+                        {owner.isVerified && <CheckCircle2 size={15} color="#3b82f6" />}
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                         <span>Member since {owner.memberSince}</span>
@@ -330,23 +337,24 @@ export default function ListingDetailModal({ listing, type = 'tool', onClose }) 
                     </div>
                   </div>
 
-                  <div className="badge badge-trust" style={{ fontSize: '0.8rem', padding: '0.35rem 0.65rem' }}>
-                    🛡️ {owner.trustScore} Trust Score
+                  <div className="badge badge-trust" style={{ fontSize: '0.78rem', padding: '0.3rem 0.6rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                    <ShieldCheck size={13} />
+                    <span>{owner.trustScore} Trust Score</span>
                   </div>
                 </div>
 
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '0 0 0.75rem' }}>
-                  {owner.bio}
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0, lineHeight: 1.4 }}>
+                  {owner.bio || 'Verified neighbor in the local equipment and skill sharing network.'}
                 </p>
 
                 {/* Neighbor reviews on owner */}
                 {ownerReviews.length > 0 && (
                   <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '0.75rem', marginTop: '0.75rem' }}>
-                    <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-main)', textTransform: 'uppercase' }}>
+                    <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-main)', textTransform: 'uppercase' }}>
                       Recent Neighbor Feedback:
                     </span>
-                    <div style={{ marginTop: '0.4rem', fontSize: '0.78rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
-                      "{ownerReviews[0].comment}" — <strong style={{ fontStyle: 'normal' }}>{ownerReviews[0].reviewerName}</strong>
+                    <div style={{ marginTop: '0.35rem', fontSize: '0.78rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                      "{ownerReviews[0].comment}" : <strong style={{ fontStyle: 'normal' }}>{ownerReviews[0].reviewerName}</strong>
                     </div>
                   </div>
                 )}
@@ -358,14 +366,15 @@ export default function ListingDetailModal({ listing, type = 'tool', onClose }) 
               <div
                 className="glass-panel"
                 style={{
-                  padding: '1.5rem',
+                  padding: '1.25rem',
                   position: 'sticky',
                   top: '5rem',
-                  background: 'var(--bg-card)'
+                  background: 'var(--bg-card)',
+                  borderRadius: 'var(--radius-sm)'
                 }}
               >
-                <div style={{ marginBottom: '1.25rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem' }}>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>
+                <div style={{ marginBottom: '1.25rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.85rem' }}>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>
                     {isTool ? 'Equipment Loan Terms' : 'Service Booking'}
                   </span>
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.35rem', marginTop: '0.25rem' }}>
@@ -385,7 +394,7 @@ export default function ListingDetailModal({ listing, type = 'tool', onClose }) 
 
                 {isOwner ? (
                   <div style={{ textAlign: 'center', padding: '1rem 0' }}>
-                    <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
+                    <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
                       You are the owner of this listing.
                     </p>
                     <button
@@ -413,6 +422,7 @@ export default function ListingDetailModal({ listing, type = 'tool', onClose }) 
                         min={todayStr}
                         value={startDate}
                         onChange={(e) => setStartDate(e.target.value)}
+                        style={{ borderRadius: 'var(--radius-sm)' }}
                         required
                       />
                     </div>
@@ -429,15 +439,45 @@ export default function ListingDetailModal({ listing, type = 'tool', onClose }) 
                           min={startDate}
                           value={endDate}
                           onChange={(e) => setEndDate(e.target.value)}
+                          style={{ borderRadius: 'var(--radius-sm)' }}
                           required
                         />
                       </div>
                     )}
 
+                    {/* Service Time Chooser Option */}
+                    <div style={{ marginBottom: '1rem' }}>
+                      <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, marginBottom: '0.35rem' }}>
+                        <Clock size={13} style={{ display: 'inline', marginRight: '4px' }} />
+                        {isTool ? 'Pickup Time Window' : 'Preferred Service Time Slot'}
+                      </label>
+                      <select
+                        className="input-field"
+                        value={serviceTimeSlot}
+                        onChange={(e) => setServiceTimeSlot(e.target.value)}
+                        style={{ borderRadius: 'var(--radius-sm)' }}
+                      >
+                        <option value="Morning (09:00 - 12:00)">Morning (09:00 - 12:00)</option>
+                        <option value="Afternoon (13:00 - 17:00)">Afternoon (13:00 - 17:00)</option>
+                        <option value="Evening (17:00 - 20:00)">Evening (17:00 - 20:00)</option>
+                        <option value="Custom Time">Custom Specific Time</option>
+                      </select>
+                      {serviceTimeSlot === 'Custom Time' && (
+                        <input
+                          type="time"
+                          className="input-field"
+                          value={customTime}
+                          onChange={(e) => setCustomTime(e.target.value)}
+                          style={{ marginTop: '0.4rem', borderRadius: 'var(--radius-sm)' }}
+                          placeholder="Select specific time"
+                        />
+                      )}
+                    </div>
+
                     {/* Project Scope / Description */}
                     <div style={{ marginBottom: '1.25rem' }}>
                       <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, marginBottom: '0.35rem' }}>
-                        Project Scope / Need
+                        Project Scope and Needs
                       </label>
                       <textarea
                         className="input-field"
@@ -450,7 +490,7 @@ export default function ListingDetailModal({ listing, type = 'tool', onClose }) 
                         value={projectScope}
                         onChange={(e) => setProjectScope(e.target.value)}
                         required
-                        style={{ resize: 'vertical' }}
+                        style={{ resize: 'vertical', borderRadius: 'var(--radius-sm)' }}
                       />
                     </div>
 
@@ -460,19 +500,19 @@ export default function ListingDetailModal({ listing, type = 'tool', onClose }) 
                         background: 'var(--primary-50)',
                         border: '1px solid var(--primary-100)',
                         borderRadius: 'var(--radius-sm)',
-                        padding: '0.85rem',
+                        padding: '0.75rem',
                         marginBottom: '1.25rem',
                         fontSize: '0.8rem'
                       }}
                     >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
                         <span>
                           {isTool ? `Rental Fee (${daysCount} days × ₹${listing.rentalFee})` : 'Service Estimate'}
                         </span>
                         <strong style={{ color: 'var(--text-main)' }}>₹{totalCost}</strong>
                       </div>
                       {isTool && listing.deposit > 0 && (
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.35rem', color: 'var(--text-muted)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem', color: 'var(--text-muted)' }}>
                           <span>Refundable Deposit</span>
                           <span>₹{listing.deposit}</span>
                         </div>
@@ -482,10 +522,10 @@ export default function ListingDetailModal({ listing, type = 'tool', onClose }) 
                           display: 'flex',
                           justifyContent: 'space-between',
                           borderTop: '1px solid rgba(13, 148, 136, 0.2)',
-                          paddingTop: '0.4rem',
+                          paddingTop: '0.35rem',
                           fontWeight: 800,
                           color: 'var(--primary-800)',
-                          fontSize: '0.9rem'
+                          fontSize: '0.85rem'
                         }}
                       >
                         <span>Total Payable at Pickup</span>
@@ -496,14 +536,20 @@ export default function ListingDetailModal({ listing, type = 'tool', onClose }) 
                     <button
                       type="submit"
                       className="btn btn-primary btn-lg"
-                      style={{ width: '100%', fontWeight: 800, boxShadow: 'var(--shadow-teal)' }}
+                      style={{ width: '100%', fontWeight: 700 }}
                       disabled={isSubmitting}
                     >
-                      {isSubmitting ? 'Sending Request...' : isTool ? 'Request to Borrow' : 'Hire / Book Service'}
+                      {!currentUser
+                        ? 'Sign In to Submit Request'
+                        : isSubmitting
+                        ? 'Sending Request...'
+                        : isTool
+                        ? 'Request to Borrow'
+                        : 'Book Service'}
                     </button>
 
-                    <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textAlign: 'center', marginTop: '0.65rem' }}>
-                      🛡️ In-app chat and exact pickup address unlock automatically once accepted.
+                    <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textAlign: 'center', marginTop: '0.6rem' }}>
+                      In-app chat and pickup address unlock automatically once accepted.
                     </p>
                   </form>
                 )}

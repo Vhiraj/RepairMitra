@@ -10,7 +10,8 @@ const PORT = process.env.PORT || 5000;
 const JWT_SECRET = process.env.JWT_SECRET || 'repairmitra_super_secret_jwt_key_2026';
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Initialize SQLite database on boot
 initDatabase().catch(console.error);
@@ -375,7 +376,7 @@ app.get('/', async (req, res) => {
   <div class="container">
     <header>
       <div class="logo-group">
-        <div class="logo-icon">🛠️</div>
+        <div class="logo-icon">[RM]</div>
         <div class="logo-title">
           <h1>RepairMitra Backend Portal</h1>
           <p>Express REST API & SQLite3 Local Database</p>
@@ -387,7 +388,7 @@ app.get('/', async (req, res) => {
           Server Live on Port ${PORT}
         </div>
         <a href="http://localhost:5173" target="_blank" class="btn-frontend">
-          Open Frontend App ↗
+          Open Frontend App
         </a>
       </div>
     </header>
@@ -395,7 +396,7 @@ app.get('/', async (req, res) => {
     <div class="stats-grid">
       <div class="stat-card">
         <div class="stat-header">
-          <span>👥 Users</span>
+          <span>Users</span>
           <span>SQLite</span>
         </div>
         <div class="stat-value">${users.length}</div>
@@ -404,7 +405,7 @@ app.get('/', async (req, res) => {
 
       <div class="stat-card">
         <div class="stat-header">
-          <span>🔧 Tools</span>
+          <span>Tools</span>
           <span>Catalog</span>
         </div>
         <div class="stat-value">${tools.length}</div>
@@ -413,7 +414,7 @@ app.get('/', async (req, res) => {
 
       <div class="stat-card">
         <div class="stat-header">
-          <span>🛠️ Skills</span>
+          <span>Skills</span>
           <span>Services</span>
         </div>
         <div class="stat-value">${skills.length}</div>
@@ -422,7 +423,7 @@ app.get('/', async (req, res) => {
 
       <div class="stat-card">
         <div class="stat-header">
-          <span>📋 Requests</span>
+          <span>Requests</span>
           <span>Ledger</span>
         </div>
         <div class="stat-value">${requests.length}</div>
@@ -431,7 +432,7 @@ app.get('/', async (req, res) => {
 
       <div class="stat-card">
         <div class="stat-header">
-          <span>⭐ Reviews</span>
+          <span>Reviews</span>
           <span>Trust</span>
         </div>
         <div class="stat-value">${reviews.length}</div>
@@ -440,7 +441,7 @@ app.get('/', async (req, res) => {
 
       <div class="stat-card">
         <div class="stat-header">
-          <span>💬 Messages</span>
+          <span>Messages</span>
           <span>Chat</span>
         </div>
         <div class="stat-value">${messages.length}</div>
@@ -601,14 +602,20 @@ app.get('/', async (req, res) => {
 // POST /api/auth/register
 app.post('/api/auth/register', async (req, res) => {
   try {
-    const { name, email, password, phone, location, neighborhood, role = 'user', bio } = req.body;
+    const { name, username, email, password, phone, location, neighborhood, role = 'user', bio } = req.body;
     if (!name || !email || !password) {
       return res.status(400).json({ error: 'Name, email, and password are required' });
     }
 
-    const existing = await db.getAsync('SELECT id FROM users WHERE email = ?', [email]);
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanUsername = (username || cleanEmail.split('@')[0]).trim().toLowerCase();
+
+    const existing = await db.getAsync(
+      'SELECT id FROM users WHERE LOWER(email) = ? OR LOWER(username) = ?',
+      [cleanEmail, cleanUsername]
+    );
     if (existing) {
-      return res.status(400).json({ error: 'A user with this email already exists' });
+      return res.status(400).json({ error: 'A user with this email or username already exists' });
     }
 
     const salt = await bcrypt.genSalt(10);
@@ -618,12 +625,13 @@ app.post('/api/auth/register', async (req, res) => {
     const phoneEncrypted = phone ? `${phone.substring(0, 7)}•••••` : '+91 98000 •••••';
 
     await db.runAsync(
-      `INSERT INTO users (id, name, email, password_hash, avatar, phone_encrypted, location, neighborhood, lat, lng, is_verified, trust_score, rating_average, reviews_count, member_since, role, bio)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 50, 5.0, 0, ?, ?, ?)`,
+      `INSERT INTO users (id, name, username, email, password_hash, avatar, phone_encrypted, location, neighborhood, lat, lng, is_verified, trust_score, rating_average, reviews_count, member_since, role, bio)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 50, 5.0, 0, ?, ?, ?)`,
       [
         userId,
-        name,
-        email,
+        name.trim(),
+        cleanUsername,
+        cleanEmail,
         passwordHash,
         avatar,
         phoneEncrypted,
@@ -633,12 +641,11 @@ app.post('/api/auth/register', async (req, res) => {
         77.6408,
         'Oct 2026',
         role,
-        bio || 'New neighbor excited to borrow tools and share skills!'
+        bio || 'Community member in tool and skill exchange network.'
       ]
     );
 
-    const newUser = await db.getAsync('SELECT id, name, email, avatar, phone_encrypted, location, neighborhood, is_verified, trust_score, rating_average, reviews_count, member_since, role, bio FROM users WHERE id = ?', [userId]);
-
+    const newUser = await db.getAsync('SELECT * FROM users WHERE id = ?', [userId]);
     const token = jwt.sign({ userId: newUser.id, role: newUser.role }, JWT_SECRET, { expiresIn: '7d' });
     res.status(201).json({ token, user: formatUser(newUser) });
   } catch (err) {
@@ -650,19 +657,23 @@ app.post('/api/auth/register', async (req, res) => {
 // POST /api/auth/login
 app.post('/api/auth/login', async (req, res) => {
   try {
-    const { email, password } = req.body;
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Email and password are required' });
+    const identifier = (req.body.identifier || req.body.email || req.body.username || '').trim();
+    const { password } = req.body;
+    if (!identifier || !password) {
+      return res.status(400).json({ error: 'Username/Email and password are required' });
     }
 
-    const user = await db.getAsync('SELECT * FROM users WHERE email = ?', [email]);
+    const user = await db.getAsync(
+      'SELECT * FROM users WHERE LOWER(email) = LOWER(?) OR LOWER(username) = LOWER(?)',
+      [identifier, identifier]
+    );
     if (!user) {
-      return res.status(401).json({ error: 'Invalid email or password' });
+      return res.status(401).json({ error: 'Invalid username/email or password' });
     }
 
     const isMatch = await bcrypt.compare(password, user.password_hash);
     if (!isMatch) {
-      return res.status(401).json({ error: 'Invalid email or password' });
+      return res.status(401).json({ error: 'Invalid username/email or password' });
     }
 
     const token = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
@@ -928,16 +939,19 @@ app.post('/api/requests', async (req, res) => {
       ownerId,
       startDate,
       endDate,
+      serviceTimeSlot,
+      pickupTimeSlot,
       daysCount = 1,
       projectScope,
       totalCost,
       deposit = 0
     } = req.body;
 
+    const timeSlot = serviceTimeSlot || pickupTimeSlot || 'Flexible';
     const reqId = `req-${Date.now()}`;
     await db.runAsync(
-      `INSERT INTO requests (id, listing_id, listing_type, listing_title, listing_image, borrower_id, owner_id, start_date, end_date, days_count, project_scope, status, total_cost, deposit)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)`,
+      `INSERT INTO requests (id, listing_id, listing_type, listing_title, listing_image, borrower_id, owner_id, start_date, end_date, pickup_time_slot, days_count, project_scope, status, total_cost, deposit)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)`,
       [
         reqId,
         listingId,
@@ -948,6 +962,7 @@ app.post('/api/requests', async (req, res) => {
         ownerId,
         startDate,
         endDate,
+        timeSlot,
         daysCount,
         projectScope,
         totalCost,
@@ -964,8 +979,8 @@ app.post('/api/requests', async (req, res) => {
       [
         notifId,
         ownerId,
-        'New Borrow / Service Request 📬',
-        `${borrower?.name || 'A neighbor'} requested "${listingTitle}" for ${startDate}.`,
+        'New Borrow or Service Request',
+        `${borrower?.name || 'A neighbor'} requested "${listingTitle}" for ${startDate} (${timeSlot}).`,
         reqId
       ]
     );
@@ -1002,9 +1017,9 @@ app.patch('/api/requests/:id/respond', async (req, res) => {
       [
         notifId,
         reqItem.borrower_id,
-        decision === 'accept' ? 'Request Accepted! 🎉' : 'Request Update',
+        decision === 'accept' ? 'Request Accepted' : 'Request Update',
         decision === 'accept'
-          ? `${owner?.name} accepted your request for "${reqItem.listing_title}". Pickup details unlocked!`
+          ? `${owner?.name} accepted your request for "${reqItem.listing_title}". Pickup details unlocked.`
           : `${owner?.name} was unable to fulfill your request.`,
         decision === 'accept' ? 'request_accepted' : 'request_declined',
         req.params.id
@@ -1022,8 +1037,8 @@ app.patch('/api/requests/:id/respond', async (req, res) => {
         reqItem.owner_id,
         reqItem.borrower_id,
         decision === 'accept'
-          ? `Request accepted! Pickup address unlocked: ${owner?.location || 'Indiranagar'}. ${notes || ''}`
-          : `Hello, sorry I won't be able to provide this on the requested dates. ${notes || ''}`
+          ? `Request accepted. Pickup address unlocked: ${owner?.location || 'Indiranagar'}. ${notes || ''}`
+          : `Hello, sorry I will not be able to provide this on the requested dates. ${notes || ''}`
       ]
     );
 
@@ -1063,9 +1078,44 @@ app.patch('/api/requests/:id/complete', async (req, res) => {
   }
 });
 
+// DELETE /api/requests/:id
+app.delete('/api/requests/:id', async (req, res) => {
+  try {
+    await db.runAsync('DELETE FROM messages WHERE request_id = ?', [req.params.id]);
+    await db.runAsync('DELETE FROM notifications WHERE reference_id = ?', [req.params.id]);
+    await db.runAsync('DELETE FROM requests WHERE id = ?', [req.params.id]);
+    res.json({ success: true, id: req.params.id });
+  } catch (err) {
+    console.error('Error deleting request:', err);
+    res.status(500).json({ error: 'Failed to delete request' });
+  }
+});
+
 // -------------------------------------------------------------
 // MESSAGES & REVIEWS & NOTIFICATIONS ENDPOINTS
 // -------------------------------------------------------------
+
+// GET /api/messages
+app.get('/api/messages', async (req, res) => {
+  try {
+    const { userId, requestId } = req.query;
+    let query = 'SELECT * FROM messages';
+    let params = [];
+    if (requestId) {
+      query += ' WHERE request_id = ? ORDER BY timestamp ASC';
+      params.push(requestId);
+    } else if (userId) {
+      query += ' WHERE from_user_id = ? OR to_user_id = ? ORDER BY timestamp ASC';
+      params.push(userId, userId);
+    } else {
+      query += ' ORDER BY timestamp ASC';
+    }
+    const rows = await db.allAsync(query, params);
+    res.json(rows.map(formatMessage));
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch messages' });
+  }
+});
 
 // GET /api/messages/:requestId
 app.get('/api/messages/:requestId', async (req, res) => {
@@ -1100,7 +1150,7 @@ app.post('/api/messages', async (req, res) => {
       [
         notifId,
         toUserId,
-        `Message from ${fromUser?.name || 'Neighbor'} 💬`,
+        `Message from ${fromUser?.name || 'Neighbor'}`,
         text.length > 50 ? `${text.substring(0, 50)}...` : text,
         requestId
       ]
@@ -1239,6 +1289,7 @@ function formatUser(u) {
   return {
     id: u.id,
     name: u.name,
+    username: u.username || (u.email ? u.email.split('@')[0] : 'user'),
     email: u.email,
     avatar: u.avatar,
     phoneEncrypted: u.phone_encrypted,
@@ -1312,6 +1363,7 @@ function formatRequest(r) {
     ownerId: r.owner_id,
     startDate: r.start_date,
     endDate: r.end_date,
+    pickupTimeSlot: r.pickup_time_slot || r.pickup_time_notes || 'Flexible',
     daysCount: r.days_count,
     projectScope: r.project_scope,
     status: r.status,
@@ -1375,6 +1427,20 @@ function safeParseJSON(str, fallback) {
   }
 }
 
+// Serve production frontend bundle from dist if available
+const path = require('path');
+const fs = require('fs');
+const distPath = path.join(__dirname, '..', 'dist');
+
+if (fs.existsSync(distPath)) {
+  app.use(express.static(distPath));
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api')) return next();
+    res.sendFile(path.join(distPath, 'index.html'));
+  });
+}
+
 app.listen(PORT, () => {
-  console.log(`🚀 RepairMitra Express REST API server running on http://127.0.0.1:${PORT}`);
+  console.log(`[Express] RepairMitra REST API server running on http://127.0.0.1:${PORT}`);
 });
+

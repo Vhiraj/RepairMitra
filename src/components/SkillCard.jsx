@@ -85,9 +85,9 @@ export default function SkillCard({ skill }) {
             position: 'absolute',
             top: '0.6rem',
             right: '0.6rem',
-            background: 'rgba(255, 255, 255, 0.85)',
+            background: 'rgba(255, 255, 255, 0.9)',
             border: 'none',
-            borderRadius: '50%',
+            borderRadius: 'var(--radius-sm)',
             width: '32px',
             height: '32px',
             display: 'flex',
@@ -97,6 +97,7 @@ export default function SkillCard({ skill }) {
             color: isFav ? '#ef4444' : 'var(--text-muted)',
             boxShadow: 'var(--shadow-sm)'
           }}
+          title={isFav ? 'Remove from saved' : 'Save skill for later'}
         >
           <Bookmark size={16} fill={isFav ? '#ef4444' : 'none'} />
         </button>
@@ -125,8 +126,9 @@ export default function SkillCard({ skill }) {
           <span className="badge badge-category" style={{ fontSize: '0.7rem' }}>
             {skill.serviceType}
           </span>
-          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-            📍 {skill.neighborhood}
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+            <MapPin size={12} />
+            <span>{skill.neighborhood}</span>
           </span>
         </div>
 
@@ -222,7 +224,7 @@ export default function SkillCard({ skill }) {
             <img
               src={owner.avatar}
               alt={owner.name}
-              style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover' }}
+              style={{ width: '28px', height: '28px', borderRadius: '4px', objectFit: 'cover' }}
             />
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
@@ -239,14 +241,18 @@ export default function SkillCard({ skill }) {
             </div>
           </div>
 
-          <div className="badge badge-trust" style={{ fontSize: '0.68rem', padding: '0.15rem 0.45rem' }}>
-            🛡️ {owner.trustScore} Trust
+          <div
+            className="badge badge-trust"
+            style={{ fontSize: '0.68rem', padding: '0.15rem 0.45rem', display: 'inline-flex', alignItems: 'center', gap: '3px' }}
+          >
+            <ShieldCheck size={12} />
+            <span>{owner.trustScore} Trust</span>
           </div>
         </div>
 
         <button
           className="btn btn-primary btn-sm"
-          style={{ width: '100%', fontWeight: 700, background: 'linear-gradient(135deg, #0d9488, #0f766e)' }}
+          style={{ width: '100%', fontWeight: 700 }}
           onClick={() => openModal('skillDetail', skill)}
         >
           {isOwner ? 'Manage My Skill' : 'Request Repair / Service'}

@@ -13,10 +13,19 @@ import {
 
 export default function ChatModal({ data, onClose }) {
   const { requestId, otherParty, reqTitle } = data;
-  const { currentUser, messages, sendMessage } = useApp();
+  const { currentUser, messages, sendMessage, fetchMessagesForRequest } = useApp();
 
   const [inputVal, setInputVal] = useState('');
   const messagesEndRef = useRef(null);
+
+  // Poll for messages in real time every 2.5 seconds
+  useEffect(() => {
+    fetchMessagesForRequest(requestId);
+    const interval = setInterval(() => {
+      fetchMessagesForRequest(requestId);
+    }, 2500);
+    return () => clearInterval(interval);
+  }, [requestId]);
 
   // Filter messages for this request
   const requestMessages = messages.filter((m) => m.requestId === requestId);
@@ -37,12 +46,12 @@ export default function ChatModal({ data, onClose }) {
     if (!textToSend) setInputVal('');
   };
 
-  // Quick Action Shortcuts
+  // Quick Action Shortcuts - Clean text without emojis
   const quickActions = [
-    '📍 Share gate code & flat number',
-    '⏰ Confirming pickup at 10:00 AM',
-    '✅ Received tool safely, thank you!',
-    '🔔 Reminder: return planned for tomorrow evening'
+    'Share gate code and apartment details',
+    'Confirming pickup time window',
+    'Received tool in good condition',
+    'Return planned as scheduled'
   ];
 
   return (
@@ -67,7 +76,7 @@ export default function ChatModal({ data, onClose }) {
             <img
               src={otherParty.avatar}
               alt={otherParty.name}
-              style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover' }}
+              style={{ width: '40px', height: '40px', borderRadius: '4px', objectFit: 'cover' }}
             />
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
@@ -81,8 +90,9 @@ export default function ChatModal({ data, onClose }) {
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <div className="badge badge-trust" style={{ fontSize: '0.7rem' }}>
-              🛡️ {otherParty.trustScore} Trust
+            <div className="badge badge-trust" style={{ fontSize: '0.7rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+              <ShieldCheck size={13} />
+              <span>{otherParty.trustScore} Trust</span>
             </div>
             <button
               onClick={onClose}
@@ -103,8 +113,8 @@ export default function ChatModal({ data, onClose }) {
         <div
           style={{
             background: 'rgba(13, 148, 136, 0.08)',
-            padding: '0.4rem 1rem',
-            fontSize: '0.72rem',
+            padding: '0.5rem 1rem',
+            fontSize: '0.75rem',
             color: 'var(--primary-800)',
             display: 'flex',
             alignItems: 'center',
@@ -129,11 +139,11 @@ export default function ChatModal({ data, onClose }) {
         >
           {requestMessages.length === 0 ? (
             <div style={{ textAlign: 'center', color: 'var(--text-muted)', margin: 'auto' }}>
-              <p style={{ fontSize: '0.85rem' }}>Say hello to coordinate pick-up times, tool check, or project scope!</p>
+              <p style={{ fontSize: '0.85rem' }}>Say hello to coordinate pick-up times, tool check, or project scope.</p>
             </div>
           ) : (
             requestMessages.map((msg) => {
-              const isMine = msg.fromUserId === currentUser.id;
+              const isMine = currentUser && msg.fromUserId === currentUser.id;
               const isSystem = msg.isSystemAlert;
 
               if (isSystem) {
@@ -146,7 +156,7 @@ export default function ChatModal({ data, onClose }) {
                       border: '1px solid rgba(16, 185, 129, 0.3)',
                       color: '#065f46',
                       padding: '0.4rem 0.85rem',
-                      borderRadius: 'var(--radius-full)',
+                      borderRadius: 'var(--radius-sm)',
                       fontSize: '0.75rem',
                       maxWidth: '90%',
                       textAlign: 'center',
@@ -172,9 +182,9 @@ export default function ChatModal({ data, onClose }) {
                   <div
                     style={{
                       padding: '0.65rem 0.95rem',
-                      borderRadius: isMine ? '14px 14px 2px 14px' : '14px 14px 14px 2px',
+                      borderRadius: 'var(--radius-sm)',
                       background: isMine
-                        ? 'linear-gradient(135deg, var(--primary-600), var(--primary-700))'
+                        ? 'var(--primary-600)'
                         : 'var(--bg-card)',
                       color: isMine ? '#ffffff' : 'var(--text-main)',
                       border: isMine ? 'none' : '1px solid var(--border-color)',
@@ -196,10 +206,10 @@ export default function ChatModal({ data, onClose }) {
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Quick Suggestion Pills */}
+        {/* Quick Suggestion Buttons */}
         <div
           style={{
-            padding: '0.4rem 1rem',
+            padding: '0.5rem 1rem',
             display: 'flex',
             gap: '0.4rem',
             overflowX: 'auto',
@@ -207,22 +217,22 @@ export default function ChatModal({ data, onClose }) {
             background: 'var(--bg-page)'
           }}
         >
-          {quickActions.map((pill, idx) => (
+          {quickActions.map((item, idx) => (
             <button
               key={idx}
-              onClick={() => handleSend(pill)}
+              onClick={() => handleSend(item)}
               style={{
-                fontSize: '0.7rem',
+                fontSize: '0.72rem',
                 background: 'var(--bg-card)',
                 border: '1px solid var(--border-color)',
-                borderRadius: 'var(--radius-full)',
-                padding: '0.2rem 0.6rem',
+                borderRadius: 'var(--radius-sm)',
+                padding: '0.3rem 0.6rem',
                 whiteSpace: 'nowrap',
                 cursor: 'pointer',
                 color: 'var(--text-main)'
               }}
             >
-              {pill}
+              {item}
             </button>
           ))}
         </div>
@@ -247,12 +257,12 @@ export default function ChatModal({ data, onClose }) {
             placeholder="Type your message to neighbor..."
             value={inputVal}
             onChange={(e) => setInputVal(e.target.value)}
-            style={{ borderRadius: 'var(--radius-full)', height: '2.5rem' }}
+            style={{ borderRadius: 'var(--radius-sm)', height: '2.5rem' }}
           />
           <button
             type="submit"
             className="btn btn-primary"
-            style={{ borderRadius: 'var(--radius-full)', width: '2.5rem', height: '2.5rem', padding: 0 }}
+            style={{ borderRadius: 'var(--radius-sm)', width: '2.5rem', height: '2.5rem', padding: 0 }}
           >
             <Send size={16} />
           </button>

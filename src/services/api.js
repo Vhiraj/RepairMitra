@@ -3,11 +3,11 @@ const API_BASE = '/api';
 
 export const api = {
   // Auth
-  async login(email, password) {
+  async login(identifier, password) {
     const res = await fetch(`${API_BASE}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password })
+      body: JSON.stringify({ identifier, password })
     });
     if (!res.ok) {
       const err = await res.json();
@@ -145,7 +145,22 @@ export const api = {
     return res.json();
   },
 
+  async deleteRequest(id) {
+    const res = await fetch(`${API_BASE}/requests/${id}`, {
+      method: 'DELETE'
+    });
+    if (!res.ok) throw new Error('Failed to delete request');
+    return res.json();
+  },
+
   // Messages
+  async getAllMessages(userId) {
+    const url = userId ? `${API_BASE}/messages?userId=${userId}` : `${API_BASE}/messages`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('Failed to fetch messages');
+    return res.json();
+  },
+
   async getMessages(requestId) {
     const res = await fetch(`${API_BASE}/messages/${requestId}`);
     if (!res.ok) throw new Error('Failed to fetch messages');

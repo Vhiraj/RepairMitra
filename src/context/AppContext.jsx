@@ -12,9 +12,7 @@ export function AppProvider({ children }) {
     StorageService.get(StorageService.KEYS.USERS, [])
   );
   const [currentUser, setCurrentUser] = useState(() => {
-    const cachedUsers = StorageService.get(StorageService.KEYS.USERS, []);
-    const cachedId = StorageService.get(StorageService.KEYS.CURRENT_USER_ID, 'user-1');
-    return cachedUsers.find((u) => u.id === cachedId) || cachedUsers[0] || null;
+    return StorageService.get('REPAIRMITRA_LOGGED_IN_USER', null);
   });
 
   const [tools, setTools] = useState(() =>
@@ -53,6 +51,7 @@ export function AppProvider({ children }) {
   const [is2GMode, setIs2GModeState] = useState(() =>
     StorageService.get(StorageService.KEYS.MODE_2G, false)
   );
+  const [isLocating, setIsLocating] = useState(false);
 
   const [theme, setTheme] = useState('light');
   const [activeTab, setActiveTab] = useState('explore');
@@ -63,17 +62,18 @@ export function AppProvider({ children }) {
   const [activeModal, setActiveModal] = useState(null); // { type, data }
   const [isBackendConnected, setIsBackendConnected] = useState(false);
 
-  // Fetch live datasets from SQLite / Express backend on startup
+  // Fetch live datasets from SQLite / Express backend
   const fetchBackendData = async () => {
     try {
-      const [backendUsers, backendTools, backendSkills, backendRequests, backendReviews, backendNotifs] =
+      const [backendUsers, backendTools, backendSkills, backendRequests, backendReviews, backendNotifs, backendMessages] =
         await Promise.all([
           api.getUsers(),
           api.getTools(),
           api.getSkills(),
           api.getRequests(),
           api.getReviews(),
-          api.getNotifications()
+          api.getNotifications(),
+          api.getAllMessages().catch(() => [])
         ]);
 
       setUsers(backendUsers);
@@ -82,15 +82,18 @@ export function AppProvider({ children }) {
       setRequests(backendRequests);
       setReviews(backendReviews);
       setNotifications(backendNotifs);
+      if (Array.isArray(backendMessages) && backendMessages.length > 0) {
+        setMessages(backendMessages);
+      }
       setIsBackendConnected(true);
 
-      // Match current user
+      // Match current logged in user if session exists
       if (currentUser) {
         const found = backendUsers.find((u) => u.id === currentUser.id);
-        if (found) setCurrentUser(found);
-        else setCurrentUser(backendUsers[0]);
-      } else {
-        setCurrentUser(backendUsers[0]);
+        if (found) {
+          setCurrentUser(found);
+          StorageService.set('REPAIRMITRA_LOGGED_IN_USER', found);
+        }
       }
 
       // Sync local storage mirror
@@ -108,13 +111,7 @@ export function AppProvider({ children }) {
     fetchBackendData();
   }, []);
 
-  // Sync state back to local cache
-  useEffect(() => {
-    if (currentUser) {
-      StorageService.set(StorageService.KEYS.CURRENT_USER_ID, currentUser.id);
-    }
-  }, [currentUser]);
-
+  // Sync favorites
   useEffect(() => {
     StorageService.set(StorageService.KEYS.FAVORITES, favorites);
   }, [favorites]);
@@ -131,69 +128,81 @@ export function AppProvider({ children }) {
     }
   }, [is2GMode]);
 
-  // Auth: Login with Email & Password
-  const loginUser = async (email, password) => {
-    try {
-      const res = await api.login(email, password);
-      setCurrentUser(res.user);
-      localStorage.setItem('repairmitra_token', res.token);
-      await fetchBackendData();
-      return res.user;
-    } catch (err) {
-      // Fallback
-      const found = users.find((u) => u.email.toLowerCase() === email.toLowerCase());
-      if (found) {
-        setCurrentUser(found);
-        return found;
-      }
-      throw err;
-    }
+  // Auth: Login with Username/Email & Password
+  const loginUser = async (identifier, password) => {
+    const res = await api.login(identifier, password);
+    setCurrentUser(res.user);
+    StorageService.set('REPAIRMITRA_LOGGED_IN_USER', res.user);
+    if (res.token) localStorage.setItem('repairmitra_token', res.token);
+    await fetchBackendData();
+    return res.user;
   };
 
   // Auth: Register new user
   const registerUser = async (data) => {
-    try {
-      const res = await api.register(data);
-      setCurrentUser(res.user);
-      localStorage.setItem('repairmitra_token', res.token);
-      await fetchBackendData();
-      return res.user;
-    } catch (err) {
-      const newU = {
-        id: `user-${Date.now()}`,
-        name: data.name,
-        email: data.email,
-        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
-        phoneEncrypted: data.phone ? `${data.phone.substring(0, 7)}•••••` : '+91 98000 •••••',
-        location: data.location || 'Indiranagar, Bangalore',
-        neighborhood: data.neighborhood || 'Indiranagar',
-        coordinates: { lat: 12.9784, lng: 77.6408 },
-        isVerified: false,
-        trustScore: 50,
-        ratingAverage: 5.0,
-        reviewsCount: 0,
-        memberSince: 'Oct 2026',
-        role: data.role || 'user',
-        bio: data.bio || 'New neighbor'
-      };
-      setUsers((prev) => [newU, ...prev]);
-      setCurrentUser(newU);
-      return newU;
-    }
+    const res = await api.register(data);
+    setCurrentUser(res.user);
+    StorageService.set('REPAIRMITRA_LOGGED_IN_USER', res.user);
+    if (res.token) localStorage.setItem('repairmitra_token', res.token);
+    await fetchBackendData();
+    return res.user;
   };
 
-  // Switch demo account
-  const switchUser = (userId) => {
-    const user = users.find((u) => u.id === userId);
-    if (user) {
-      setCurrentUser(user);
-    }
+  // Logout
+  const logoutUser = () => {
+    setCurrentUser(null);
+    StorageService.remove('REPAIRMITRA_LOGGED_IN_USER');
+    localStorage.removeItem('repairmitra_token');
+    setActiveTab('explore');
   };
 
   // Location & Radius
   const setUserLocation = (loc) => {
     setUserLocationState(loc);
     StorageService.set(StorageService.KEYS.USER_LOCATION, loc);
+  };
+
+  const detectLocation = () => {
+    setIsLocating(true);
+    if ('geolocation' in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        async (pos) => {
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+          let area = 'Current GPS Area';
+          try {
+            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+            if (res.ok) {
+              const data = await res.json();
+              area = data.address?.suburb || data.address?.neighbourhood || data.address?.city_district || data.address?.city || 'Local Area';
+            }
+          } catch (e) {
+            // fallback
+          }
+          const loc = {
+            neighborhood: area,
+            lat,
+            lng,
+            postalCode: 'Local'
+          };
+          setUserLocation(loc);
+          setIsLocating(false);
+        },
+        (err) => {
+          console.warn('Geolocation failed:', err);
+          setIsLocating(false);
+          setUserLocation({
+            neighborhood: 'Indiranagar',
+            lat: 12.9784,
+            lng: 77.6408,
+            postalCode: '560038'
+          });
+        },
+        { timeout: 8000 }
+      );
+    } else {
+      setIsLocating(false);
+    }
   };
 
   const setMaxDistanceKm = (km) => {
@@ -239,6 +248,11 @@ export function AppProvider({ children }) {
 
   // Post Tool Listing
   const postTool = async (toolData) => {
+    if (!currentUser) {
+      openModal('auth', 'login');
+      return null;
+    }
+
     try {
       const payload = {
         ownerId: currentUser.id,
@@ -261,7 +275,6 @@ export function AppProvider({ children }) {
       closeModal();
       return created;
     } catch (err) {
-      // Local fallback
       const localTool = {
         id: `tool-${Date.now()}`,
         ownerId: currentUser.id,
@@ -278,6 +291,11 @@ export function AppProvider({ children }) {
 
   // Post Skill Listing
   const postSkill = async (skillData) => {
+    if (!currentUser) {
+      openModal('auth', 'login');
+      return null;
+    }
+
     try {
       const payload = {
         ownerId: currentUser.id,
@@ -330,6 +348,11 @@ export function AppProvider({ children }) {
 
   // Create Request / Booking
   const createRequest = async (data) => {
+    if (!currentUser) {
+      openModal('auth', 'login');
+      return null;
+    }
+
     try {
       const payload = {
         listingId: data.listingId,
@@ -340,6 +363,8 @@ export function AppProvider({ children }) {
         ownerId: data.ownerId,
         startDate: data.startDate,
         endDate: data.endDate,
+        serviceTimeSlot: data.serviceTimeSlot || 'Flexible',
+        pickupTimeSlot: data.serviceTimeSlot || 'Flexible',
         daysCount: data.daysCount || 1,
         projectScope: data.projectScope,
         totalCost: data.totalCost,
@@ -351,7 +376,7 @@ export function AppProvider({ children }) {
       const notif = {
         id: `notif-${Date.now()}`,
         userId: data.ownerId,
-        title: 'New Borrow / Service Request 📬',
+        title: 'New Borrow or Service Request',
         message: `${currentUser.name} requested "${data.listingTitle}" for ${data.startDate}.`,
         type: 'request_new',
         referenceId: created.id,
@@ -375,6 +400,17 @@ export function AppProvider({ children }) {
     }
   };
 
+  // Cancel / Delete a request raised by the current user
+  const deleteRequest = async (id) => {
+    try {
+      await api.deleteRequest(id);
+    } catch (e) {
+      console.warn('API error deleting request:', e);
+    }
+    setRequests((prev) => prev.filter((r) => r.id !== id));
+    setMessages((prev) => prev.filter((m) => m.requestId !== id));
+  };
+
   // Owner responds: Accept or Decline
   const respondToRequest = async (requestId, decision, responseNotes = '') => {
     try {
@@ -388,7 +424,7 @@ export function AppProvider({ children }) {
               ...r,
               status: decision === 'accept' ? 'accepted' : 'declined',
               exactPickupAddress:
-                decision === 'accept' ? 'Indiranagar 100ft Road (Landmark: Opp. Toit)' : null,
+                decision === 'accept' ? 'Indiranagar 100ft Road (Contact via in-app chat)' : null,
               pickupTimeNotes: responseNotes
             };
           }
@@ -402,10 +438,10 @@ export function AppProvider({ children }) {
       const notif = {
         id: `notif-${Date.now()}`,
         userId: req.borrowerId,
-        title: decision === 'accept' ? 'Request Accepted! 🎉' : 'Request Update',
+        title: decision === 'accept' ? 'Request Accepted' : 'Request Update',
         message:
           decision === 'accept'
-            ? `Your request for "${req.listingTitle}" was accepted. Pickup address unlocked!`
+            ? `Your request for "${req.listingTitle}" was accepted. Pickup details unlocked.`
             : `Your request was declined.`,
         type: decision === 'accept' ? 'request_accepted' : 'request_declined',
         referenceId: requestId,
@@ -428,7 +464,7 @@ export function AppProvider({ children }) {
     }
 
     const req = requests.find((r) => r.id === requestId);
-    if (req) {
+    if (req && currentUser) {
       const otherUserId = currentUser.id === req.borrowerId ? req.ownerId : req.borrowerId;
       openModal('review', { requestId, revieweeId: otherUserId, requestTitle: req.listingTitle });
     }
@@ -436,6 +472,11 @@ export function AppProvider({ children }) {
 
   // Submit Review
   const submitReview = async ({ requestId, revieweeId, rating, comment, tags }) => {
+    if (!currentUser) {
+      openModal('auth', 'login');
+      return;
+    }
+
     try {
       const payload = {
         requestId,
@@ -470,6 +511,11 @@ export function AppProvider({ children }) {
 
   // Chat message
   const sendMessage = async (requestId, text) => {
+    if (!currentUser) {
+      openModal('auth', 'login');
+      return;
+    }
+
     const req = requests.find((r) => r.id === requestId);
     if (!req) return;
 
@@ -496,21 +542,23 @@ export function AppProvider({ children }) {
     }
   };
 
-  // Identity Verification
-  const verifyIdentity = async (userId, docType, docNumber) => {
+  const fetchMessagesForRequest = async (requestId) => {
+    if (!requestId) return;
     try {
-      const updatedUser = await api.verifyUser(userId, docType);
-      setCurrentUser(updatedUser);
-      setUsers((prev) => prev.map((u) => (u.id === userId ? updatedUser : u)));
-    } catch (err) {
-      setUsers((prev) =>
-        prev.map((u) => (u.id === userId ? { ...u, isVerified: true, trustScore: Math.min(100, u.trustScore + 35) } : u))
-      );
-      if (currentUser.id === userId) {
-        setCurrentUser((prev) => ({ ...prev, isVerified: true, trustScore: Math.min(100, prev.trustScore + 35) }));
+      const list = await api.getMessages(requestId);
+      if (Array.isArray(list)) {
+        setMessages((prev) => {
+          const map = new Map();
+          // existing messages not for this request
+          prev.filter((m) => m.requestId !== requestId).forEach((m) => map.set(m.id, m));
+          // fresh messages
+          list.forEach((m) => map.set(m.id, m));
+          return Array.from(map.values());
+        });
       }
+    } catch (e) {
+      // offline fallback
     }
-    closeModal();
   };
 
   const markNotificationRead = async (id) => {
@@ -524,7 +572,7 @@ export function AppProvider({ children }) {
 
   const markAllNotificationsRead = () => {
     setNotifications((prev) =>
-      prev.map((n) => (n.userId === currentUser.id ? { ...n, isRead: true } : n))
+      prev.map((n) => (currentUser && n.userId === currentUser.id ? { ...n, isRead: true } : n))
     );
   };
 
@@ -545,7 +593,7 @@ export function AppProvider({ children }) {
       await api.verifyUser(userId, 'Admin Verified');
     } catch (e) {}
     setUsers((prev) =>
-      prev.map((u) => (u.id === userId ? { ...u, isVerified: !u.isVerified, trustScore: u.isVerified ? u.trustScore - 30 : Math.min(100, u.trustScore + 35) } : u))
+      prev.map((u) => (u.id === userId ? { ...u, isVerified: !u.isVerified } : u))
     );
   };
 
@@ -563,17 +611,21 @@ export function AppProvider({ children }) {
         currentUser,
         loginUser,
         registerUser,
-        switchUser,
+        logoutUser,
         tools,
         skills,
         requests,
+        deleteRequest,
         messages,
+        setMessages,
         reviews,
         notifications,
         favorites,
         toggleFavorite,
         userLocation,
         setUserLocation,
+        detectLocation,
+        isLocating,
         maxDistanceKm,
         setMaxDistanceKm,
         getListingDistance,
@@ -602,7 +654,7 @@ export function AppProvider({ children }) {
         completeRequest,
         submitReview,
         sendMessage,
-        verifyIdentity,
+        fetchMessagesForRequest,
         markNotificationRead,
         markAllNotificationsRead,
         adminDeleteListing,

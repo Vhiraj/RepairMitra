@@ -14,7 +14,9 @@ import {
   AlertCircle,
   Calendar,
   RotateCcw,
-  Check
+  Check,
+  Trash2,
+  LogIn
 } from 'lucide-react';
 
 export default function RequestsView() {
@@ -22,6 +24,7 @@ export default function RequestsView() {
     currentUser,
     users,
     requests,
+    deleteRequest,
     respondToRequest,
     completeRequest,
     openModal,
@@ -31,6 +34,24 @@ export default function RequestsView() {
   const [filterType, setFilterType] = useState('incoming'); // 'incoming' | 'outgoing'
   const [responseNotes, setResponseNotes] = useState('');
   const [activeReqIdForNotes, setActiveReqIdForNotes] = useState(null);
+
+  if (!currentUser) {
+    return (
+      <div style={{ maxWidth: '640px', margin: '4rem auto', textAlign: 'center' }}>
+        <div className="glass-panel" style={{ padding: '3rem 2rem' }}>
+          <AlertCircle size={40} color="var(--primary-600)" style={{ marginBottom: '1rem' }} />
+          <h2 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '0.5rem' }}>Sign In Required</h2>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
+            Please log in with your credentials to manage exchange requests, track borrow history, and coordinate with neighbors.
+          </p>
+          <button className="btn btn-primary" onClick={() => openModal('auth', 'login')}>
+            <LogIn size={16} />
+            <span>Sign In / Register</span>
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // Incoming: Requests for items owned by currentUser
   const incoming = requests.filter((r) => r.ownerId === currentUser.id);
@@ -66,6 +87,7 @@ export default function RequestsView() {
       ownerId: prevReq.ownerId,
       startDate: today,
       endDate: nextStr,
+      serviceTimeSlot: prevReq.pickupTimeSlot || 'Flexible',
       daysCount: prevReq.daysCount || 1,
       projectScope: `Re-order: ${prevReq.projectScope}`,
       totalCost: prevReq.totalCost,
@@ -203,7 +225,7 @@ export default function RequestsView() {
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                         <span className="badge badge-category" style={{ fontSize: '0.68rem' }}>
-                          {req.listingType === 'tool' ? '🧰 Tool' : '👨‍🔧 Service'}
+                          {req.listingType === 'tool' ? 'Tool' : 'Service'}
                         </span>
                         <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
                           {new Date(req.createdAt).toLocaleDateString()}
@@ -212,11 +234,22 @@ export default function RequestsView() {
                       <h4 style={{ fontSize: '1rem', fontWeight: 800, margin: '0.2rem 0', color: 'var(--text-main)' }}>
                         {req.listingTitle}
                       </h4>
-                      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <Calendar size={13} />
-                        <span>
-                          {req.startDate} {req.endDate && req.endDate !== req.startDate ? `to ${req.endDate}` : ''} ({req.daysCount} days)
-                        </span>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                          <Calendar size={13} />
+                          <span>
+                            {req.startDate} {req.endDate && req.endDate !== req.startDate ? `to ${req.endDate}` : ''} ({req.daysCount} days)
+                          </span>
+                        </div>
+                        {req.pickupTimeSlot && (
+                          <>
+                            <span>•</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                              <Clock size={12} />
+                              <span>Slot: <strong>{req.pickupTimeSlot}</strong></span>
+                            </div>
+                          </>
+                        )}
                         <span>•</span>
                         <strong style={{ color: 'var(--primary-700)' }}>₹{req.totalCost}</strong>
                         {req.deposit > 0 && <span style={{ fontSize: '0.75rem' }}>(+₹{req.deposit} deposit)</span>}
@@ -226,10 +259,10 @@ export default function RequestsView() {
 
                   {/* Status Badge */}
                   <div>
-                    {isPending && <span className="badge badge-pending">⏳ Pending Response</span>}
-                    {isAccepted && <span className="badge badge-available">✓ Accepted / Active Loan</span>}
-                    {isCompleted && <span className="badge badge-verified">★ Completed & Returned</span>}
-                    {isDeclined && <span className="badge badge-unavailable">✕ Declined</span>}
+                    {isPending && <span className="badge badge-pending">Pending Response</span>}
+                    {isAccepted && <span className="badge badge-available">Accepted / Active Loan</span>}
+                    {isCompleted && <span className="badge badge-verified">Completed & Returned</span>}
+                    {isDeclined && <span className="badge badge-unavailable">Declined</span>}
                   </div>
                 </div>
 
@@ -252,7 +285,7 @@ export default function RequestsView() {
                     <img
                       src={otherParty.avatar}
                       alt={otherParty.name}
-                      style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover' }}
+                      style={{ width: '36px', height: '36px', borderRadius: '4px', objectFit: 'cover' }}
                     />
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
@@ -262,15 +295,18 @@ export default function RequestsView() {
                         {otherParty.isVerified && <CheckCircle2 size={14} color="#3b82f6" />}
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                        <span style={{ color: '#f59e0b', fontWeight: 700 }}>★ {otherParty.ratingAverage || 5.0}</span>
+                        <span style={{ color: '#f59e0b', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
+                          <Star size={12} fill="#f59e0b" color="#f59e0b" /> {otherParty.ratingAverage || 5.0}
+                        </span>
                         <span>•</span>
                         <span>{otherParty.neighborhood || 'Neighbor'}</span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="badge badge-trust" style={{ fontSize: '0.72rem' }}>
-                    🛡️ {otherParty.trustScore} Trust Score
+                  <div className="badge badge-trust" style={{ fontSize: '0.72rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                    <ShieldCheck size={13} />
+                    <span>{otherParty.trustScore} Trust Score</span>
                   </div>
                 </div>
 
@@ -300,7 +336,7 @@ export default function RequestsView() {
                       <span>Exact Pick-up Address (Unlocked for this transaction):</span>
                     </div>
                     <div style={{ fontSize: '0.825rem', color: 'var(--text-main)', fontWeight: 600 }}>
-                      {req.exactPickupAddress || 'Flat 302, Green Glen Apartments, 12th Cross, 100ft Road, Indiranagar'}
+                      {req.exactPickupAddress || 'Indiranagar 100ft Road (Coordinate via in-app chat)'}
                     </div>
                     {req.pickupTimeNotes && (
                       <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
@@ -350,7 +386,7 @@ export default function RequestsView() {
 
                 {/* Action Buttons Bar */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', borderTop: '1px solid var(--border-color)', paddingTop: '0.85rem' }}>
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                     {/* In-app Chat Button */}
                     <button
                       className="btn btn-secondary btn-sm"
@@ -368,7 +404,23 @@ export default function RequestsView() {
                         title="Quickly borrow or request this again with pre-filled scope"
                       >
                         <RotateCcw size={14} />
-                        <span>Borrow Again (1-Click)</span>
+                        <span>Borrow Again</span>
+                      </button>
+                    )}
+
+                    {/* Cancel / Remove Request for outgoing */}
+                    {filterType === 'outgoing' && (
+                      <button
+                        className="btn btn-outline-danger btn-sm"
+                        onClick={() => {
+                          if (window.confirm('Are you sure you want to cancel and remove this request?')) {
+                            deleteRequest(req.id);
+                          }
+                        }}
+                        title="Cancel and remove this request"
+                      >
+                        <Trash2 size={14} />
+                        <span>Cancel Request</span>
                       </button>
                     )}
                   </div>
@@ -405,7 +457,6 @@ export default function RequestsView() {
                   {isAccepted && (
                     <button
                       className="btn btn-primary btn-sm"
-                      style={{ background: 'linear-gradient(135deg, #0d9488, #0f766e)' }}
                       onClick={() => completeRequest(req.id)}
                     >
                       <Check size={14} />
@@ -433,7 +484,7 @@ export default function RequestsView() {
                         </button>
                       ) : (
                         <span style={{ fontSize: '0.75rem', color: '#10b981', fontWeight: 700 }}>
-                          ✓ Reviewed & Trust Score Updated
+                          Reviewed & Trust Score Updated
                         </span>
                       )}
                     </div>

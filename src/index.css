@@ -14,7 +14,7 @@
   --accent-amber: #f59e0b;
   --accent-amber-light: #fef3c7;
   --accent-blue: #3b82f6;
-  --accent-purple: #8b5cf6;
+  --accent-slate: #64748b;
   --accent-emerald: #10b981;
   --accent-rose: #f43f5e;
 
@@ -34,10 +34,11 @@
   --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
   --shadow-teal: 0 10px 25px -5px rgba(13, 148, 136, 0.25);
 
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 18px;
-  --radius-full: 9999px;
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-full: 6px;
 
   --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
@@ -149,7 +150,7 @@ body {
   font-size: 0.875rem;
   font-weight: 600;
   font-family: var(--font-sans);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   border: 1px solid transparent;
   cursor: pointer;
   transition: all var(--transition-fast);
@@ -202,7 +203,7 @@ body {
 .btn-lg {
   padding: 0.875rem 1.75rem;
   font-size: 1rem;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
 }
 
 .btn-outline-danger {
